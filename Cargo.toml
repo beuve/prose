@@ -1,0 +1,22 @@
+[package]
+name = "flow2"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+name = "flow2"
+path = "src/lib.rs"
+
+[[bin]]
+name = "flow2"
+path = "src/bin.rs"
+
+[dependencies]
+indicatif = "0.17.8"
+itertools = "0.12.1"
+ndarray = "0.15.6"
+rand = "0.8.5"
+rand_distr = "0.4.3"
+rayon = "1.10.0"
+threadpool = "1.8.1"
