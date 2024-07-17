@@ -20,8 +20,8 @@ pub fn main() {
     let production_actor = Arc::new(Mutex::new(SimpleSource::new(
         "production".to_string(),
         "plastic".to_string(),
-        (49286, 1),
-        17.9894E6 as u32,
+        (394288, 1),
+        143.9152E6 as u32,
         pool.clone(),
     )));
     let use_actor = Arc::new(Mutex::new(SimpleActor::new(
@@ -121,23 +121,21 @@ pub fn main() {
         .tokens
         .split_off(0);
     tokens.append(&mut incineration_actor.lock().unwrap().import_fifo.tokens);
+    println!("{:?}", LogNormal::from_mean_cv(8., 2. / 8.).unwrap());
+    let use_delay: &'static (dyn Fn() -> usize + Sync) = &|| {
+        let mut rng = thread_rng();
+        (LogNormal::from_mean_cv(8., 2. / 8.)
+            .unwrap()
+            .sample(&mut rng) as f32
+            * 365.)
+            .round() as usize
+    };
+    let prod_delay: &'static (dyn Fn() -> usize + Sync) = &|| 1;
     analyze_timeline(
         tokens,
         &HashMap::from([
-            (
-                "use/plastic".to_string(),
-                (
-                    0,
-                    Some(|| {
-                        let mut rng = thread_rng();
-                        (LogNormal::from_mean_cv(8., 2. / 8.)
-                            .unwrap()
-                            .sample(&mut rng) as f32
-                            * 365.)
-                            .floor() as usize
-                    }),
-                ),
-            ),
+            ("use/plastic".to_string(), (0, Some(use_delay))),
+            ("production/plastic".to_string(), (2, Some(prod_delay))),
             ("recycling/plastic".to_string(), (1, None)),
         ]),
         200 * 365,

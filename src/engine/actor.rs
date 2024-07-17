@@ -1,7 +1,7 @@
 use threadpool::ThreadPool;
 
 use crate::engine::fifo::Fifo;
-use std::cmp::min;
+use std::cmp::{max, min};
 use std::collections::{HashMap, LinkedList};
 use std::fs::OpenOptions;
 use std::io::Write;
@@ -86,7 +86,7 @@ pub struct SimpleSource {
     pub code: String,
     pub code_product: String,
     pub speed: (u32, u32),
-    pub num_executions: u32,
+    pub num_executions: usize,
     pub total: u32,
     pub max_production: u32,
     pub client: Option<AMActor>,
@@ -106,7 +106,7 @@ impl SimpleSource {
             code_product,
             max_production,
             speed,
-            num_executions: 0u32,
+            num_executions: 0,
             total: 0u32,
             client: None,
             pool,
@@ -122,13 +122,11 @@ impl SimpleSource {
             self.total += quantity;
             let client = client.clone();
             let code_product = self.code_product.clone();
-            let init_time = (self.num_executions * self.speed.1) as u64;
             self.pool.execute(move || {
                 (client.lock().unwrap()).import(
                     &code_product,
                     LinkedList::from_iter(
-                        vec![Token::new(code_product.clone(), init_time); quantity as usize]
-                            .into_iter(),
+                        vec![Token::new(code_product.clone(), None); quantity as usize].into_iter(),
                     ),
                 )
             });
@@ -211,6 +209,8 @@ pub struct Broadcast {
     clients: HashMap<String, (u32, AMActor)>,
     quantity: u32,
     pool: ThreadPool,
+    rolling_sequence: Vec<String>,
+    rolling_index: usize,
 }
 
 impl Broadcast {
@@ -222,20 +222,68 @@ impl Broadcast {
             clients: HashMap::new(),
             quantity: 0,
             pool,
+            rolling_sequence: vec![],
+            rolling_index: 0,
         }
     }
 
-    pub fn check_requirements(&mut self) {
-        let num_activations = self.import_fifo.available_tokens() / self.quantity;
-        if num_activations > 0 {
-            for (_, (q, a)) in self.clients.iter() {
-                let a = a.clone();
-                let tokens = self.import_fifo.get(q * num_activations);
-                let code_product = self.code_product.clone();
-                self.pool
-                    .execute(move || a.lock().unwrap().import(&code_product, tokens));
-            }
+    pub fn create_rolling_sequence(&mut self) {
+        let actors: Vec<String> = self
+            .clients
+            .keys()
+            .map(|c| c.clone())
+            .collect::<Vec<String>>();
+        let mut counts = vec![0; actors.len()];
+        let total = 100;
+        let mut sequence = vec![];
+        for _ in 0..total {
+            let (index, _) = actors
+                .iter()
+                .enumerate()
+                .map(|(index, code)| {
+                    let probability = self.clients.get(code).unwrap().0 as i32;
+                    let sequence_length = max(1, sequence.len()) as i32;
+                    let count = counts[index];
+                    (index, probability * sequence_length - total * count)
+                })
+                .max_by(|(_, a), (_, b)| a.cmp(b))
+                .unwrap();
+            sequence.push(actors[index].clone());
+            counts[index] += 1;
         }
+        self.rolling_sequence = sequence;
+    }
+
+    pub fn check_requirements(&mut self) {
+        if self.import_fifo.available_tokens() == 0 {
+            return;
+        }
+        let num_full_activations =
+            self.import_fifo.available_tokens() / self.rolling_sequence.len() as u32;
+        let remaining_tokens =
+            self.import_fifo.available_tokens() % self.rolling_sequence.len() as u32;
+
+        for (code, (q, a)) in self.clients.iter() {
+            let a = a.clone();
+            let remaining_number = self
+                .rolling_sequence
+                .iter()
+                .cycle()
+                .skip(self.rolling_index)
+                .take(remaining_tokens as usize)
+                .filter(|c| c == &code)
+                .collect::<Vec<&String>>()
+                .len() as u32;
+
+            let tokens = self
+                .import_fifo
+                .get(q * num_full_activations + remaining_number);
+            let code_product = self.code_product.clone();
+            self.pool
+                .execute(move || a.lock().unwrap().import(&code_product, tokens));
+        }
+        self.rolling_index =
+            (self.rolling_index + remaining_tokens as usize) % self.rolling_sequence.len();
     }
 }
 
@@ -251,6 +299,7 @@ impl Actor for Broadcast {
             self.quantity -= q;
         }
         self.quantity += quantity;
+        self.create_rolling_sequence();
     }
 
     fn reset(&mut self) {

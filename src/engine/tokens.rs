@@ -6,16 +6,14 @@ pub struct Token {
     pub code: String,
     pub timeline: LinkedList<String>,
     pub parts: HashMap<String, Vec<Token>>,
-    pub token_time: u64,
 }
 
 impl Token {
-    pub fn new(code: String, time: u64) -> Token {
+    pub fn new(code: String, timeline: Option<LinkedList<String>>) -> Token {
         Token {
             code,
-            timeline: LinkedList::new(),
+            timeline: timeline.unwrap_or(LinkedList::new()),
             parts: HashMap::new(),
-            token_time: time,
         }
     }
 

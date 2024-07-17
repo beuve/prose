@@ -11,7 +11,7 @@ fn analyze_single_token<F>(
     token: &Token,
     processes: &HashMap<String, (usize, Option<F>)>,
     max_time: usize,
-) -> (Array1<f64>, Array2<u32>, Array2<u32>)
+) -> (Array1<f64>, Array1<f64>, Array2<u32>, Array2<u32>)
 where
     F: Fn() -> usize + Sync,
 {
@@ -27,40 +27,51 @@ where
             if let Some(delay_sampler) = delay_sampler {
                 let delay = delay_sampler();
                 let new_time = time + delay;
-                token_lifetimes[index] += delay as f64;
+                let delay = delay as f64;
+                token_lifetimes[index] += delay;
                 let mut s = token_occupencies.slice_mut(s![index, time..new_time]);
                 s += 1;
                 time = new_time;
             }
         }
     }
-    return (token_lifetimes, token_reentrances, token_occupencies);
+    return (
+        token_lifetimes.clone(),
+        token_lifetimes.map(|x| x.powi(2)),
+        token_reentrances,
+        token_occupencies,
+    );
 }
 
-pub fn analyze_timeline<F>(
+pub fn analyze_timeline(
     tokens: LinkedList<Token>,
-    processes: &HashMap<String, (usize, Option<F>)>,
+    processes: &HashMap<String, (usize, Option<&(dyn Fn() -> usize + Sync)>)>,
     max_time: usize,
     logs_folder: &str,
-) where
-    F: Fn() -> usize + Sync,
-{
+) {
     let bar = ProgressBar::new(tokens.len() as u64);
-    let (sum_lifetimes, all_reentrances, all_occupencies) = tokens
+    let (sum_lifetimes, sum_lifetimes_s, all_reentrances, all_occupencies) = tokens
         .par_iter()
         .fold(
             || {
                 let sum_lifetimes: Array1<f64> = Array::zeros(processes.len());
+                let sum_lifetimes_s: Array1<f64> = Array::zeros(processes.len());
                 let all_reentrances: Array2<u32> = Array::zeros((processes.len(), max_time));
                 let all_occupencies: Array2<u32> = Array::zeros((processes.len(), max_time));
-                (sum_lifetimes, all_reentrances, all_occupencies)
+                (
+                    sum_lifetimes,
+                    sum_lifetimes_s,
+                    all_reentrances,
+                    all_occupencies,
+                )
             },
-            |(sum_lifetimes, all_reentrances, all_occupencies), token| {
-                let (token_lifetimes, token_reentrances, token_occupencies) =
+            |(sum_lifetimes, sum_lifetimes_s, all_reentrances, all_occupencies), token| {
+                let (token_lifetimes, token_lifetimes_s, token_reentrances, token_occupencies) =
                     analyze_single_token(token, processes, max_time);
                 bar.inc(1);
                 return (
                     sum_lifetimes + token_lifetimes,
+                    sum_lifetimes_s + token_lifetimes_s,
                     all_reentrances + token_reentrances,
                     all_occupencies + token_occupencies,
                 );
@@ -69,23 +80,37 @@ pub fn analyze_timeline<F>(
         .reduce(
             || {
                 let acc_lifetimes: Array1<f64> = Array::zeros(processes.len());
+                let acc_lifetimes_s: Array1<f64> = Array::zeros(processes.len());
                 let acc_reentrances: Array2<u32> = Array::zeros((processes.len(), max_time));
                 let acc_occupencies: Array2<u32> = Array::zeros((processes.len(), max_time));
-                (acc_lifetimes, acc_reentrances, acc_occupencies)
+                (
+                    acc_lifetimes,
+                    acc_lifetimes_s,
+                    acc_reentrances,
+                    acc_occupencies,
+                )
             },
-            |(acc_lifetimes, acc_reentrances, acc_occupencies),
-             (sum_lifetimes, all_reentrances, all_occupencies)| {
+            |(acc_lifetimes, acc_lifetimes_s, acc_reentrances, acc_occupencies),
+             (sum_lifetimes, sum_lifetimes_s, all_reentrances, all_occupencies)| {
                 (
                     acc_lifetimes + sum_lifetimes,
+                    acc_lifetimes_s + sum_lifetimes_s,
                     acc_reentrances + all_reentrances,
                     acc_occupencies + all_occupencies,
                 )
             },
         );
-    println!("{}", sum_lifetimes);
-    let sum_lifetimes = sum_lifetimes / (tokens.len() as f64);
+    let n = tokens.len() as f64;
+    let mean_lifetimes = sum_lifetimes / n;
+    println!("{} {} {}", mean_lifetimes, sum_lifetimes_s, tokens.len());
+    let var_lifetimes = sum_lifetimes_s / n - mean_lifetimes.map(|x| x.powi(2));
     for (code, (index, delay)) in processes {
-        println!("lifetime {}: {}", code, sum_lifetimes[index.clone()]);
+        println!(
+            "lifetime {}: {}±{}",
+            code,
+            mean_lifetimes[index.clone()],
+            ((var_lifetimes[index.clone()] / n) as f64).sqrt()
+        );
         fs::create_dir_all(format!("{}/{}", logs_folder, code)).unwrap();
         let mut reentrance_file = OpenOptions::new()
             .create(true)
