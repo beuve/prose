@@ -1,5 +1,6 @@
 pub mod analyzer;
 pub mod engine;
+pub mod parser;
 
 pub fn add(left: usize, right: usize) -> usize {
     left + right

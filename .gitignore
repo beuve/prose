@@ -1,2 +1,7 @@
 /target
-/logs
+logs
+outputs
+venv
+.vscode
+.DS_Store
+__pycache__

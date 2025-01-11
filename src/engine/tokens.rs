@@ -1,23 +1,39 @@
 use std::collections::{HashMap, LinkedList};
-use std::vec::Vec;
 
 #[derive(Debug, Clone)]
 pub struct Token {
-    pub code: String,
-    pub timeline: LinkedList<String>,
-    pub parts: HashMap<String, Vec<Token>>,
+    pub code: u16,
+    pub timeline: LinkedList<u16>,
+    pub parts: HashMap<u16, LinkedList<Token>>,
 }
 
 impl Token {
-    pub fn new(code: String, timeline: Option<LinkedList<String>>) -> Token {
+    pub fn new(code: u16, init: Option<u16>) -> Token {
+        let mut timeline = LinkedList::new();
+        if let Some(code) = init {
+            timeline.push_back(code);
+        }
         Token {
             code,
-            timeline: timeline.unwrap_or(LinkedList::new()),
+            timeline: timeline,
             parts: HashMap::new(),
         }
     }
 
-    pub fn age(&mut self, code: String) {
-        self.timeline.push_back(code);
+    pub fn add_part(&mut self, code: u16, mut tokens: LinkedList<Token>) {
+        if let Some(l) = self.parts.get_mut(&code) {
+            l.append(&mut tokens);
+        } else {
+            self.parts.insert(code, tokens);
+        }
+    }
+
+    pub fn age(&mut self, code: u16) {
+        self.timeline.push_back(code + self.code);
+        for (_, tokens) in self.parts.iter_mut() {
+            for t in tokens {
+                t.age(code);
+            }
+        }
     }
 }
