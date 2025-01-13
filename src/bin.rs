@@ -1,7 +1,7 @@
 use clap::Parser;
 use std::collections::LinkedList;
 
-use flow2::{
+use componentflow::{
     analyzer::timeline::analyze_timeline,
     engine::{actor::AMActor, tokens::Token},
     parser::{

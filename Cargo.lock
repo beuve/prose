@@ -140,6 +140,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5b63caa9aa9397e2d9480a9b13673856c78d8ac123288526c37d7839f2a86990"
 
 [[package]]
+name = "componentflow"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "indicatif",
+ "itertools",
+ "ndarray",
+ "rand",
+ "rand_chacha",
+ "rand_distr",
+ "rayon",
+ "threadpool",
+ "yaml-rust2",
+]
+
+[[package]]
 name = "console"
 version = "0.15.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -196,22 +212,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "75030f3c4f45dafd7586dd6780965a8c7e8e285a5ecb86713e63a79c5b2766f3"
 dependencies = [
  "cfg-if",
-]
-
-[[package]]
-name = "flow2"
-version = "0.1.0"
-dependencies = [
- "clap",
- "indicatif",
- "itertools",
- "ndarray",
- "rand",
- "rand_chacha",
- "rand_distr",
- "rayon",
- "threadpool",
- "yaml-rust2",
 ]
 
 [[package]]
