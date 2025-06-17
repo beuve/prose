@@ -12,8 +12,8 @@ actors:
     component: plastic
     speed:
       time: 1
-      quantity: 14391520
-    max_production: 143915200
+      quantity: 1439152
+    max_production: 14391520
     delay: 1
     clients:
       use: 

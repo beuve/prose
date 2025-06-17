@@ -3,7 +3,7 @@ from scipy.stats import lognorm
 from tqdm import tqdm
 
 
-def mfa(times, mu=8, sigma=2, total_tons=17989400, max_iterations=100):
+def mfa(times, mu=8, sigma=2, total_tons=1798940, max_iterations=100):
   sigma = np.sqrt(np.log(1 + (sigma / mu)**2))
   mu = np.log(mu) - 0.5 * sigma**2
 
