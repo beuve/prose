@@ -29,9 +29,11 @@ fn analyze_single_token(
             token_reentrances[[index, time]] += 1;
             if let Some(delay_sampler) = delay_sampler {
                 let delay = delay_sampler();
-                let new_time = time + delay;
-                let delay = delay as f64;
-                token_lifetimes[index] += delay;
+                let mut new_time = time + delay;
+                if new_time >= max_time {
+                    new_time = max_time - 1;
+                }
+                token_lifetimes[index] += delay as f64;
                 let mut s = token_occupencies.slice_mut(s![index, time..new_time]);
                 s += 1;
                 time = new_time;
