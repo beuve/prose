@@ -45,7 +45,7 @@ impl std::convert::From<std::io::Error> for ParseError {
 }
 
 pub struct GlobalConfig {
-    pub max_iteration: usize,
+    pub time_window: usize,
     pub dt: f64,
 }
 
@@ -106,9 +106,9 @@ fn parse_global(doc: &Yaml) -> Result<GlobalConfig> {
     if doc.is_badvalue() {
         return Err(ParseError::SectionMissing(String::from("Global")));
     }
-    let max_iteration = doc.get("max_iterations")?.int()?;
+    let time_window = doc.get("time_window")?.int()?;
     let dt = doc.get("dt")?.float()?;
-    return Ok(GlobalConfig { max_iteration, dt });
+    return Ok(GlobalConfig { time_window, dt });
 }
 
 fn parse_components(doc: &Yaml) -> Result<HashMap<String, u16>> {

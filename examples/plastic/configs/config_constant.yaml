@@ -1,5 +1,5 @@
 global:
-  max_iterations: 200
+  time_window: 200
   results_path: "./logs/tmp"
   dt: 0.1
 

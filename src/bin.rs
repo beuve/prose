@@ -56,7 +56,7 @@ pub fn main() -> Result<()> {
     analyze_timeline(
         tokens,
         &config.logs,
-        (config.global.max_iteration as f64 / config.global.dt) as usize,
+        (config.global.time_window as f64 / config.global.dt) as usize,
         args.output,
         config.global.dt,
     );

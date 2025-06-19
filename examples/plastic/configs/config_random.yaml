@@ -1,5 +1,5 @@
 global:
-  max_iterations: 200
+  time_window: 200
   dt: 0.1
 
 components:
