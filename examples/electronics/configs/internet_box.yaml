@@ -1,0 +1,86 @@
+
+# $time_window is the total window of observation
+# $dt (delta time) is the minimal unit of studied time
+
+global:
+  time_window: 120
+  results_path: "./logs/tmp"
+  dt: 1.0
+
+components:
+  - device
+
+# $quantity devices are produced per time unit
+# A total of $max_production devices are produced. After that, no device is produced anymore
+
+# All durations expressed in months
+# Total observation on 10 years = 120 months
+# Usage of 3M boxes in total over 10 years, all internet boxes put on market in the first 2 years => 125000 box per month are contracted to subcontractor
+
+# Questions:
+## How many of these boxes remain over time ?
+## How many devices will be repaired or refurbished at once, and when is peak ?
+## After the fabrication phase of new devices, how many new contracts can still be signed?
+actors:
+  production:
+    type: SimpleSource
+    source: true
+    component: device
+    speed:
+      time: 1
+      quantity: 125000
+    max_production: 3000000
+    delay: 1
+    clients:
+      use: 
+        device: 100
+
+  use:
+    type: SimpleActor
+    component: device
+    log: 
+      device:
+        #constant:
+         #value: 24.0
+        log_normal:
+          mean: 24.0
+          std: 12.0
+    clients: 
+      refurbish: 
+        device: 100
+        
+  refurbish:
+    type: SimpleActor
+    component: device
+    log: 
+      device:
+        #constant:
+         #value: 24.0
+        log_normal:
+          mean: 0.5
+          std: 0.2
+    clients: 
+      use: 
+        device: 80
+      repair: 
+        device: 20
+        
+  repair:
+    type: SimpleActor
+    component: device
+    log: 
+      device:
+        #constant:
+         #value: 24.0
+        log_normal:
+          mean: 0.5
+          std: 0.2
+    clients: 
+      use: 
+        device: 80
+      discard: 
+        device: 20
+
+  discard: 
+    type: SimpleSink
+    component: device
