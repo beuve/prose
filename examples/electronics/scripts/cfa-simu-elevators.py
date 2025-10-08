@@ -41,12 +41,12 @@ if __name__ == "__main__":
   fig, axs = plt.subplots(1,2,figsize=(10, 3.5))
 
   axs[0].ticklabel_format(axis="y", scilimits=[-3, 3])
-  axs[0].set_ylim([0, 4e5])
+  axs[0].set_ylim([0, 1e5])
   axs[0].set_xlabel("Time (year)")
   axs[0].set_ylabel("Use Reentries (devices)")
   axs[0].plot(t, use_reentries, label="CPN (r)", color='#72CAFF',)
 
-  axs[1].set_ylim([0, 4e6])
+  axs[1].set_ylim([0, 4e5])
   axs[1].set_xlabel("Time (year)")
   axs[1].set_ylabel("Use Occupancy (devices)")
   axs[1].plot(t, use_occupancy, label="CPN (r)", color='#72CAFF',)
@@ -73,12 +73,12 @@ if __name__ == "__main__":
   fig, axs = plt.subplots(1,2,figsize=(10, 3.5))
 
   axs[0].ticklabel_format(axis="y", scilimits=[-3, 3])
-  axs[0].set_ylim([0, 4e5])
+  axs[0].set_ylim([0, 4e3])
   axs[0].set_xlabel("Time (year)")
   axs[0].set_ylabel("Repair Reentries (devices)")
   axs[0].plot(t, repair_reentries, label="CPN (r)", color='#72CAFF',)
 
-  axs[1].set_ylim([0, 4e4])
+  axs[1].set_ylim([0, 1e3])
   axs[1].set_xlabel("Time (year)")
   axs[1].set_ylabel("Repair Occupancy (devices)")
   axs[1].plot(t, repair_occupancy, label="CPN (r)", color='#72CAFF',)

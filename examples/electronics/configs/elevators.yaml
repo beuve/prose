@@ -3,8 +3,7 @@
 global:
   time_window: 120
   results_path: "./logs/tmp"
-  dt: 1.0
-
+  dt: 0.5
 components:
   - device
   
@@ -19,8 +18,24 @@ actors:
     max_production: 5000
     delay: 1
     clients:
-      use: 
+      unmount: 
         device: 100
+        
+  unmount:
+    type: SimpleActor
+    component: device
+    log: 
+      device:
+        #constant:
+        # value: 0.5
+        log_normal:
+          mean: 0.25 # 3 months
+          std: 0.083 # 1 month
+    clients: 
+      use: 
+        device: 70
+      discard: 
+        device: 30
         
   manufacturing:
     type: SimpleSource
@@ -56,11 +71,11 @@ actors:
     component: device
     log: 
       device:
-        constant:
-         value: 0.5
-        #log_normal:
-        #  mean: 0.5
-        #  std: 0.2
+        #constant:
+        # value: 0.5
+        log_normal:
+          mean: 0.25 # 3 months
+          std: 0.083 # 1 month
     clients: 
       use: 
         device: 70
