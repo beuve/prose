@@ -20,7 +20,9 @@ rm -Rf  $WORK_DIR/outputs
 rm -Rf  $WORK_DIR/logs
 
 echo "Lauching prose simulation in Rust"
-cargo run --release -- -c $WORK_DIR/configs/internet_box.yaml -o $WORK_DIR/logs/internet_box
+#cargo run --release -- -c $WORK_DIR/configs/internet_box.yaml -o $WORK_DIR/logs/internet_box
+
+cargo run --release -- -c $WORK_DIR/configs/elevators.yaml -o $WORK_DIR/logs/elevators
 
 # $time_window is the total window of observation
 # $dt (delta time) is the minimal unit of studied time
@@ -28,7 +30,8 @@ cargo run --release -- -c $WORK_DIR/configs/internet_box.yaml -o $WORK_DIR/logs/
 # A total of $max_production devices are produced. After that, no device is produced anymore
 
 echo "Analyzing simulation logs in Python"
-python3 $WORK_DIR/scripts/cfa-simu.py
+#python3 $WORK_DIR/scripts/cfa-simu-internet_box.py
+python3 $WORK_DIR/scripts/cfa-simu-elevators.py
 
 xdg-open $WORK_DIR/outputs/use_cfa.pdf
 xdg-open $WORK_DIR/outputs/repair_cfa.pdf

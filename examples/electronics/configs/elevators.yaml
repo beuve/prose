@@ -1,0 +1,72 @@
+# Choosing yearly time granuarity
+
+global:
+  time_window: 120
+  results_path: "./logs/tmp"
+  dt: 1.0
+
+components:
+  - device
+  
+actors:
+  decommissioning:
+    type: SimpleSource
+    source: true
+    component: device
+    speed:
+      time: 1
+      quantity: 500
+    max_production: 5000
+    delay: 1
+    clients:
+      use: 
+        device: 100
+        
+  manufacturing:
+    type: SimpleSource
+    source: true
+    component: device
+    speed:
+      time: 1
+      quantity: 5000
+    max_production: 75000
+    delay: 1
+    clients:
+      use: 
+        device: 100
+
+  use:
+    type: SimpleActor
+    component: device
+    log: 
+      device:
+        constant:
+         value: 1.0
+        #log_normal:
+        #  mean: 240.0
+        #  std: 60.0
+    clients: 
+      use: 
+        device: 96
+      repair: 
+        device: 4
+        
+  repair:
+    type: SimpleActor
+    component: device
+    log: 
+      device:
+        constant:
+         value: 0.5
+        #log_normal:
+        #  mean: 0.5
+        #  std: 0.2
+    clients: 
+      use: 
+        device: 70
+      discard: 
+        device: 30
+
+  discard: 
+    type: SimpleSink
+    component: device
