@@ -9,7 +9,6 @@ use std::collections::{HashMap, LinkedList};
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::sync::{Arc, Mutex};
-use std::u32;
 
 use super::tokens::Token;
 
@@ -39,7 +38,7 @@ pub trait Actor {
     fn reset(&mut self);
 
     /// Prints a repport at the end of the simulation.
-    fn report(&self, log_folder: &String);
+    fn report(&self, log_folder: &str);
 
     fn code(&self) -> u16;
 
@@ -67,8 +66,8 @@ impl SimpleActor {
     pub fn new(code: u16, code_product: u16, pool: ThreadPool) -> SimpleActor {
         let fifo: Fifo = Fifo::new(code, true);
         SimpleActor {
-            code: code,
-            code_product: code_product,
+            code,
+            code_product,
             import_fifo: fifo,
             client: Broadcast::new(code, code_product, pool.clone()),
             pool,
@@ -114,11 +113,11 @@ impl Actor for SimpleActor {
         let code_product = components
             .get(component)
             .ok_or_else(|| UnknownComponent(String::from(component)))?;
-        return Ok(Arc::new(Mutex::new(SimpleActor::new(
+        Ok(Arc::new(Mutex::new(SimpleActor::new(
             code,
-            code_product.clone(),
+            *code_product,
             pool,
-        ))));
+        ))))
     }
 
     fn as_source(&mut self) -> &mut dyn Source {
@@ -142,7 +141,7 @@ impl Actor for SimpleActor {
         self.import_fifo.reset();
     }
 
-    fn report(&self, _: &String) {}
+    fn report(&self, _: &str) {}
 }
 
 pub struct SimpleSource {
@@ -190,14 +189,14 @@ impl Source for SimpleSource {
         self.pool.execute(move || {
             (client.lock().unwrap()).import(
                 code_product,
-                LinkedList::from_iter(
-                    vec![Token::new(code_product, Some(num_executions)); quantity as usize]
-                        .into_iter(),
-                ),
+                LinkedList::from_iter(vec![
+                    Token::new(code_product, Some(num_executions));
+                    quantity as usize
+                ]),
             )
         });
         self.num_executions += 1;
-        return true;
+        true
     }
 }
 
@@ -234,17 +233,17 @@ impl Actor for SimpleSource {
             (quantity, time)
         };
         let max_production = doc.get("max_production")?.int()? as u32;
-        return Ok(Arc::new(Mutex::new(SimpleSource::new(
+        Ok(Arc::new(Mutex::new(SimpleSource::new(
             code,
-            code_product.clone(),
+            *code_product,
             speed,
             max_production,
             pool,
-        ))));
+        ))))
     }
 
     fn as_source(&mut self) -> &mut dyn Source {
-        return self;
+        self
     }
 
     fn import(&mut self, _: u16, _: LinkedList<Token>) {
@@ -263,10 +262,9 @@ impl Actor for SimpleSource {
         self.num_executions = 0;
     }
 
-    fn report(&self, log_folder: &String) {
+    fn report(&self, log_folder: &str) {
         let mut file = OpenOptions::new()
             .create(true)
-            .write(true)
             .append(true)
             .open(format!("{}/logs.csv", log_folder))
             .unwrap();
@@ -283,8 +281,8 @@ pub struct SimpleSink {
 impl SimpleSink {
     pub fn new(code: u16, code_product: u16) -> Self {
         Self {
-            code: code,
-            code_product: code_product,
+            code,
+            code_product,
             import_fifo: Fifo::new(code, true),
         }
     }
@@ -316,10 +314,7 @@ impl Actor for SimpleSink {
         let code_product = components
             .get(component)
             .ok_or_else(|| UnknownComponent(String::from(component)))?;
-        return Ok(Arc::new(Mutex::new(SimpleSink::new(
-            code,
-            code_product.clone(),
-        ))));
+        Ok(Arc::new(Mutex::new(SimpleSink::new(code, *code_product))))
     }
 
     fn as_source(&mut self) -> &mut dyn Source {
@@ -338,10 +333,9 @@ impl Actor for SimpleSink {
         self.import_fifo.reset();
     }
 
-    fn report(&self, log_folder: &String) {
+    fn report(&self, log_folder: &str) {
         let mut file = OpenOptions::new()
             .create(true)
-            .write(true)
             .append(true)
             .open(format!("{}/logs.csv", log_folder))
             .unwrap();
@@ -363,8 +357,8 @@ pub struct Broadcast {
 impl Broadcast {
     pub fn new(code: u16, code_product: u16, pool: ThreadPool) -> Arc<Mutex<Broadcast>> {
         Arc::new(Mutex::new(Self {
-            code: code,
-            code_product: code_product,
+            code,
+            code_product,
             import_fifo: Fifo::new(code, false),
             clients: HashMap::new(),
             quantity: 0,
@@ -375,7 +369,7 @@ impl Broadcast {
     }
 
     pub fn create_rolling_sequence(&mut self) {
-        let actors: Vec<u16> = self.clients.keys().map(|c| c.clone()).collect();
+        let actors: Vec<u16> = self.clients.keys().copied().collect();
         let mut counts = vec![0; actors.len()];
         let total = self.quantity as i32;
         let mut sequence = vec![];
@@ -391,7 +385,7 @@ impl Broadcast {
                 })
                 .max_by(|(_, a), (_, b)| a.cmp(b))
                 .unwrap();
-            sequence.push(actors[index].clone());
+            sequence.push(actors[index]);
             counts[index] += 1;
         }
         self.rolling_sequence = sequence;
@@ -483,5 +477,5 @@ impl Actor for Broadcast {
         self.import_fifo.reset();
     }
 
-    fn report(&self, _: &String) {}
+    fn report(&self, _: &str) {}
 }

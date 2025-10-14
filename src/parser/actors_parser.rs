@@ -9,11 +9,10 @@ use yaml_rust2::Yaml;
 use crate::engine::actor::{AMActor, Actor, SimpleActor, SimpleSink, SimpleSource};
 
 use super::yaml_parser::Result;
-pub static ACTORS: LazyLock<
-    Arc<
-        Mutex<HashMap<String, fn(&Yaml, u16, HashMap<String, u16>, ThreadPool) -> Result<AMActor>>>,
-    >,
-> = LazyLock::new(|| Arc::new(Mutex::new(HashMap::new())));
+
+type ActorCallback = fn(&Yaml, u16, HashMap<String, u16>, ThreadPool) -> Result<AMActor>;
+pub static ACTORS: LazyLock<Arc<Mutex<HashMap<String, ActorCallback>>>> =
+    LazyLock::new(|| Arc::new(Mutex::new(HashMap::new())));
 
 pub fn add_actor_implementation(
     label: String,

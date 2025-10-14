@@ -23,7 +23,7 @@ impl Fifo {
     }
 
     pub fn put(&mut self, mut new_tokens: LinkedList<Token>) {
-        if new_tokens.len() == 0 {
+        if new_tokens.is_empty() {
             return;
         }
         if self.log {
@@ -32,20 +32,19 @@ impl Fifo {
             }
         }
         new_tokens.append(&mut self.tokens);
-        (*self).tokens = new_tokens;
+        self.tokens = new_tokens;
     }
 
     pub fn get(&mut self, quantity: u32) -> LinkedList<Token> {
         if quantity == 0 {
             return LinkedList::new();
         }
-        return self
-            .tokens
-            .split_off(self.tokens.len() - (quantity as usize));
+        self.tokens
+            .split_off(self.tokens.len() - (quantity as usize))
     }
 
     pub fn get_all(&mut self) -> LinkedList<Token> {
-        return self.tokens.split_off(0);
+        self.tokens.split_off(0)
     }
 
     pub fn reset(&mut self) {

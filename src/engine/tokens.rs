@@ -15,7 +15,7 @@ impl Token {
         }
         Token {
             code,
-            timeline: timeline,
+            timeline,
             parts: HashMap::new(),
         }
     }

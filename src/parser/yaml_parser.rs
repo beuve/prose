@@ -6,7 +6,7 @@ use threadpool::ThreadPool;
 use yaml_rust2::yaml::Hash;
 use yaml_rust2::{Yaml, YamlLoader};
 
-use crate::analyzer::TimeCallback;
+use crate::analyzer::Sampler;
 use crate::engine::actor::AMActor;
 use crate::parser::actors_parser::ACTORS;
 
@@ -50,12 +50,12 @@ pub struct GlobalConfig {
 }
 
 pub trait YamlParser {
-    fn get<'a>(&'a self, label: &str) -> Result<&'a Self>;
-    fn str<'a>(&'a self) -> Result<&'a str>;
+    fn get(&self, label: &str) -> Result<&Self>;
+    fn str(&self) -> Result<&str>;
     fn int(&self) -> Result<usize>;
     fn float(&self) -> Result<f64>;
     fn bool(&self) -> Result<bool>;
-    fn hash<'a>(&'a self) -> Result<&'a Hash>;
+    fn hash(&self) -> Result<&Hash>;
 }
 
 impl YamlParser for Yaml {
@@ -66,38 +66,38 @@ impl YamlParser for Yaml {
         Ok(&self[label])
     }
 
-    fn str<'a>(&'a self) -> Result<&'a str> {
+    fn str(&self) -> Result<&str> {
         match self.as_str() {
-            None => return Err(ParseError::SectionWrongType(String::from("unknown"))),
-            Some(data) => return Ok(data),
+            None => Err(ParseError::SectionWrongType(String::from("unknown"))),
+            Some(data) => Ok(data),
         }
     }
 
     fn int(&self) -> Result<usize> {
         match self.as_i64() {
-            None => return Err(ParseError::SectionWrongType(String::from("unknown"))),
-            Some(data) => return Ok(data as usize),
+            None => Err(ParseError::SectionWrongType(String::from("unknown"))),
+            Some(data) => Ok(data as usize),
         }
     }
 
     fn bool(&self) -> Result<bool> {
         match self.as_bool() {
-            None => return Err(ParseError::SectionWrongType(String::from("unknown"))),
-            Some(data) => return Ok(data),
+            None => Err(ParseError::SectionWrongType(String::from("unknown"))),
+            Some(data) => Ok(data),
         }
     }
 
-    fn hash<'a>(&'a self) -> Result<&'a Hash> {
+    fn hash(&self) -> Result<&Hash> {
         match self.as_hash() {
-            None => return Err(ParseError::SectionWrongType(String::from("unknown"))),
-            Some(data) => return Ok(data),
+            None => Err(ParseError::SectionWrongType(String::from("unknown"))),
+            Some(data) => Ok(data),
         }
     }
 
     fn float(&self) -> Result<f64> {
         match self.as_f64() {
-            None => return Err(ParseError::SectionWrongType(String::from("unknown"))),
-            Some(data) => return Ok(data),
+            None => Err(ParseError::SectionWrongType(String::from("unknown"))),
+            Some(data) => Ok(data),
         }
     }
 }
@@ -108,7 +108,7 @@ fn parse_global(doc: &Yaml) -> Result<GlobalConfig> {
     }
     let time_window = doc.get("time_window")?.int()?;
     let dt = doc.get("dt")?.float()?;
-    return Ok(GlobalConfig { time_window, dt });
+    Ok(GlobalConfig { time_window, dt })
 }
 
 fn parse_components(doc: &Yaml) -> Result<HashMap<String, u16>> {
@@ -143,17 +143,14 @@ fn parse_clients(
             for (product_label, value) in products.hash()? {
                 actor.lock().unwrap().register(
                     client_code,
-                    components
-                        .get(&product_label.str()?.to_string())
-                        .unwrap()
-                        .clone(),
+                    *components.get(&product_label.str()?.to_string()).unwrap(),
                     value.int()? as u32,
                     client.clone(),
                 );
             }
         }
     }
-    return Ok(());
+    Ok(())
 }
 
 fn parse_actors(
@@ -171,14 +168,20 @@ fn parse_actors(
         let actors = ACTORS.lock().unwrap();
         let actor_callback = actors
             .get(&actor_type)
-            .ok_or_else(|| ParseError::UnknownActor(actor_type))?;
+            .ok_or(ParseError::UnknownActor(actor_type))?;
         res.insert(
             label,
             actor_callback(content, index, components.clone(), threadpool.clone())?,
         );
         index += index_step;
     }
-    return Ok(res);
+    Ok(res)
+}
+
+pub struct ActorLogInfos {
+    pub index: usize,
+    pub product_code: String,
+    pub time_sampler: Option<Sampler>,
 }
 
 fn parse_logs(
@@ -186,9 +189,9 @@ fn parse_logs(
     components: &HashMap<String, u16>,
     actors: &HashMap<String, AMActor>,
     dt: f64,
-) -> Result<HashMap<u16, (String, usize, Option<TimeCallback>)>> {
+) -> Result<HashMap<u16, ActorLogInfos>> {
     let actors_doc = doc.hash()?;
-    let mut res: HashMap<u16, (String, usize, Option<TimeCallback>)> = HashMap::new();
+    let mut res: HashMap<u16, ActorLogInfos> = HashMap::new();
     for (actor_label, content) in actors_doc {
         let actor_label = actor_label.str()?.to_string();
         let actor = actors.get(&actor_label).unwrap();
@@ -198,13 +201,16 @@ fn parse_logs(
         }
         for (product_label, content) in log.hash()? {
             let product_label = product_label.str()?.to_string();
-            let code =
-                components.get(&product_label).unwrap().clone() + actor.lock().unwrap().code();
+            let code = *components.get(&product_label).unwrap() + actor.lock().unwrap().code();
 
             if content.is_null() {
                 res.insert(
                     code,
-                    (format!("{actor_label}/{product_label}"), res.len(), None),
+                    ActorLogInfos {
+                        product_code: format!("{actor_label}/{product_label}"),
+                        index: res.len(),
+                        time_sampler: None,
+                    },
                 );
                 continue;
             }
@@ -219,14 +225,14 @@ fn parse_logs(
             let callback_name = callback_doc.str()?.to_string();
             let time_callbacks = TIME_CALLBACK.lock().unwrap();
             let time_creation_callback = time_callbacks.get(&callback_name).unwrap();
-            let time_callback = time_creation_callback(&content.get(callback_doc).unwrap(), dt)?;
+            let time_callback = time_creation_callback(content.get(callback_doc).unwrap(), dt)?;
             res.insert(
                 code,
-                (
-                    format!("{actor_label}/{product_label}"),
-                    res.len(),
-                    Some(time_callback),
-                ),
+                ActorLogInfos {
+                    product_code: format!("{actor_label}/{product_label}"),
+                    index: res.len(),
+                    time_sampler: Some(time_callback),
+                },
             );
         }
     }
@@ -251,7 +257,7 @@ pub struct Config {
     pub global: GlobalConfig,
     pub actors: HashMap<String, AMActor>,
     pub components: HashMap<String, u16>,
-    pub logs: HashMap<u16, (String, usize, Option<TimeCallback>)>,
+    pub logs: HashMap<u16, ActorLogInfos>,
     pub init_sources: Vec<String>,
     pub pool: ThreadPool,
 }

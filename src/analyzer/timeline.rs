@@ -1,4 +1,5 @@
 use crate::engine::tokens::Token;
+use crate::parser::yaml_parser::ActorLogInfos;
 use indicatif::ProgressBar;
 use itertools::enumerate;
 use ndarray::{s, Array, Array1, Array2};
@@ -7,11 +8,9 @@ use std::collections::{HashMap, LinkedList};
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 
-use super::TimeCallback;
-
 fn analyze_single_token(
     token: &Token,
-    processes: &HashMap<u16, (String, usize, Option<TimeCallback>)>,
+    processes: &HashMap<u16, ActorLogInfos>,
     max_time: usize,
 ) -> (Array1<f64>, Array1<f64>, Array2<u32>, Array2<u32>) {
     let mut time: usize = 0;
@@ -23,34 +22,33 @@ fn analyze_single_token(
             // The first value contains the number of executions of
             // the production actor before this token was created
             time += *code as usize;
-        } else if processes.contains_key(&code) {
-            let (_, index, delay_sampler) = processes.get(&code).unwrap();
-            let index = index.clone();
-            token_reentrances[[index, time]] += 1;
-            if let Some(delay_sampler) = delay_sampler {
+        } else if processes.contains_key(code) {
+            let actor_log_infos = processes.get(code).unwrap();
+            token_reentrances[[actor_log_infos.index, time]] += 1;
+            if let Some(delay_sampler) = &actor_log_infos.time_sampler {
                 let delay = delay_sampler();
                 let mut new_time = time + delay;
                 if new_time >= max_time {
                     new_time = max_time - 1;
                 }
-                token_lifetimes[index] += delay as f64;
-                let mut s = token_occupencies.slice_mut(s![index, time..new_time]);
+                token_lifetimes[actor_log_infos.index] += delay as f64;
+                let mut s = token_occupencies.slice_mut(s![actor_log_infos.index, time..new_time]);
                 s += 1;
                 time = new_time;
             }
         }
     }
-    return (
+    (
         token_lifetimes.clone(),
         token_lifetimes.map(|x| x.powi(2)),
         token_reentrances,
         token_occupencies,
-    );
+    )
 }
 
 pub fn analyze_timeline(
     tokens: LinkedList<Token>,
-    processes: &HashMap<u16, (String, usize, Option<TimeCallback>)>,
+    processes: &HashMap<u16, ActorLogInfos>,
     max_time: usize,
     logs_folder: String,
     dt: f64,
@@ -75,12 +73,12 @@ pub fn analyze_timeline(
                 let (token_lifetimes, token_lifetimes_s, token_reentrances, token_occupencies) =
                     analyze_single_token(token, processes, max_time);
                 bar.inc(1);
-                return (
+                (
                     sum_lifetimes + token_lifetimes,
                     sum_lifetimes_s + token_lifetimes_s,
                     all_reentrances + token_reentrances,
                     all_occupencies + token_occupencies,
-                );
+                )
             },
         )
         .reduce(
@@ -109,33 +107,40 @@ pub fn analyze_timeline(
     let n = tokens.len() as f64;
     let mean_lifetimes = sum_lifetimes.clone() / n;
     let var_lifetimes = sum_lifetimes_s / n - mean_lifetimes.map(|x| x.powi(2));
-    for (_, (name, index, delay)) in processes {
+    for actor_log_infos in processes.values() {
         println!(
             "lifetime {}: {}±{}",
-            name,
-            mean_lifetimes[index.clone()] * dt,
-            ((var_lifetimes[index.clone()] / n) as f64).sqrt() * dt
+            actor_log_infos.product_code,
+            mean_lifetimes[actor_log_infos.index] * dt,
+            (var_lifetimes[actor_log_infos.index] / n).sqrt() * dt
         );
-        fs::create_dir_all(format!("{}/{}", logs_folder, name)).unwrap();
+        fs::create_dir_all(format!("{}/{}", logs_folder, actor_log_infos.product_code)).unwrap();
         let mut reentrance_file = OpenOptions::new()
             .create(true)
             .write(true)
             .append(false)
-            .open(format!("{}/{}/reentrances.csv", logs_folder, name))
+            .open(format!(
+                "{}/{}/reentrances.csv",
+                logs_folder, actor_log_infos.product_code
+            ))
             .unwrap();
         writeln!(reentrance_file, "time,quantity").unwrap();
-        for (time, quantity) in enumerate(all_reentrances.slice(s![index.clone(), ..])) {
+        for (time, quantity) in enumerate(all_reentrances.slice(s![actor_log_infos.index, ..])) {
             writeln!(reentrance_file, "{},{}", time, quantity).unwrap();
         }
-        if let Some(_) = delay {
+        if actor_log_infos.time_sampler.is_some() {
             let mut occupency_file = OpenOptions::new()
                 .create(true)
                 .write(true)
                 .append(false)
-                .open(format!("{}/{}/occupency.csv", logs_folder, name))
+                .open(format!(
+                    "{}/{}/occupency.csv",
+                    logs_folder, actor_log_infos.product_code
+                ))
                 .unwrap();
             writeln!(occupency_file, "time,quantity").unwrap();
-            for (time, quantity) in enumerate(all_occupencies.slice(s![index.clone(), ..])) {
+            for (time, quantity) in enumerate(all_occupencies.slice(s![actor_log_infos.index, ..]))
+            {
                 writeln!(occupency_file, "{},{}", time, quantity).unwrap();
             }
         }

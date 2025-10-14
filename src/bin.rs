@@ -24,10 +24,10 @@ pub struct Arguments {
     pub output: String,
 }
 
-pub fn supply_loop(source: AMActor, pool: ThreadPool, times: u32) {
+pub fn supply_loop(source: AMActor, _pool: ThreadPool, _times: u32) {
     let need_new_supply = source.lock().unwrap().as_source().supply();
     if need_new_supply {
-        supply_loop(source, pool, times + 1);
+        supply_loop(source, _pool, _times + 1);
     }
 }
 
