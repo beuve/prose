@@ -22,13 +22,13 @@ impl Fifo {
         self.tokens.len() as u32
     }
 
-    pub fn put(&mut self, mut new_tokens: LinkedList<Token>) {
+    pub fn put(&mut self, mut new_tokens: LinkedList<Token>, time: u64) {
         if new_tokens.is_empty() {
             return;
         }
         if self.log {
             for t in new_tokens.iter_mut() {
-                t.age(self.code)
+                t.age(self.code, time)
             }
         }
         new_tokens.append(&mut self.tokens);

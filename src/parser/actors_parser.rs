@@ -3,21 +3,21 @@ use std::{
     sync::{Arc, LazyLock, Mutex},
 };
 
-use threadpool::ThreadPool;
-use yaml_rust2::Yaml;
+use bimap::BiMap;
+use serde_yaml::Value;
 
-use crate::engine::actor::{AMActor, Actor, SimpleActor, SimpleSink, SimpleSource};
+use crate::engine::{
+    actors::{AMActor, Actor, SimpleActor, SimpleSink, SimpleSource},
+    scheduler::Scheduler,
+};
 
 use super::yaml_parser::Result;
 
-type ActorCallback = fn(&Yaml, u16, HashMap<String, u16>, ThreadPool) -> Result<AMActor>;
+type ActorCallback = fn(&Value, u16, &BiMap<String, u16>, Scheduler, f64) -> Result<AMActor>;
 pub static ACTORS: LazyLock<Arc<Mutex<HashMap<String, ActorCallback>>>> =
     LazyLock::new(|| Arc::new(Mutex::new(HashMap::new())));
 
-pub fn add_actor_implementation(
-    label: String,
-    callback: fn(&Yaml, u16, HashMap<String, u16>, ThreadPool) -> Result<AMActor>,
-) {
+pub fn add_actor_implementation(label: String, callback: ActorCallback) {
     ACTORS.lock().unwrap().insert(label, callback);
 }
 

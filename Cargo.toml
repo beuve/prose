@@ -13,6 +13,8 @@ name = "componentflow"
 path = "src/bin.rs"
 
 [dependencies]
+bimap = "0.6.3"
+bisection = "0.1.0"
 clap = { version = "4.5.18", features = ["derive"] }
 indicatif = "0.17.8"
 itertools = "0.12.1"
@@ -21,5 +23,7 @@ rand = "0.8.5"
 rand_chacha = "0.3.1"
 rand_distr = "0.4.3"
 rayon = "1.10.0"
+serde = { version = "1.0.228", features = ["derive", "rc"] }
+serde_yaml = "0.9.34"
+statrs = "0.18.0"
 threadpool = "1.8.1"
-yaml-rust2 = "0.9"
